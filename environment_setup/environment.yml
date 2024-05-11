@@ -5,6 +5,7 @@ channels:
   - r
   - defaults
   - conda-forge
+  - nvidia
 dependencies:
   - _libgcc_mutex=0.1=main
   - blas=1.0=mkl
@@ -14,6 +15,8 @@ dependencies:
   - cudatoolkit=10.0.130=0
   - freetype=2.9.1=h8a8886c_1
   - intel-openmp=2019.4=243
+  - ipython
+  - jupyterlab
   - jpeg=9b=h024ee3a_2
   - libedit=3.1.20181209=hc058e9b_0
   - libffi=3.2.1=hd88cf55_4
@@ -36,13 +39,15 @@ dependencies:
   - pip=19.2.3=py37_0
   - pycparser=2.19=py37_0
   - python=3.7.4=h265db76_1
-  - pytorch=1.2.0=py3.7_cuda10.0.130_cudnn7.6.2_0
+  - pytorch
+  - pytorch-cuda=11.8
   - readline=7.0=h7b6447c_5
+  - seaborn
   - setuptools=41.4.0=py37_0
   - six=1.12.0=py37_0
   - sqlite=3.30.0=h7b6447c_0
   - tk=8.6.8=hbc83047_0
-  - torchvision=0.4.0=py37_cu100
+  - torchvision=0.4.0
   - wheel=0.33.6=py37_0
   - xz=5.2.4=h14c3975_4
   - zlib=1.2.11=h7b6447c_3

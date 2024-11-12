@@ -81,5 +81,88 @@ class DepMapPairsDataset(Dataset):
         return(self.index.shape[0])
         
 
-# class DepMapPairsEncoder(nn.Module):
-#     def __init__(self, omics_input_sizes, ppi_input_size, n_layers)
+class DepMapPairsEncoder(nn.Module):
+    def __init__(self, omics_matrix_idx_list, ppi_matrix_idx, n_hiddens_level0=3, n_hiddens_top=3, contraction_ratio=10):
+        
+        super(DepMapPairsEncoder, self).__init__()
+        self.omics_matrix_idx = omics_matrix_idx_list
+        self.ppi_matrix_idx = ppi_matrix_idx
+        self.n_hiddens_level0=n_hiddens_level0
+        self.n_hiddens_top = n_hiddens_top
+        
+        top_layer_input_size = 0
+        for i in range(len(self.omics_matrix_idx)):
+            idx_i = self.omics_matrix_idx[i]
+            input_size = len(idx_i)
+            for j in range(n_hiddens_level0):
+                output_size = max(int(input_size/contraction_ratio), 10)
+                self.add_module('FC_omics_{}_layer_{}'.format(str(i), str(j)), nn.Linear(input_size, output_size))
+                del input_size
+                input_size = output_size
+                if j == (n_hiddens_level0 - 1):
+                    top_layer_input_size += output_size
+                del output_size
+        
+        
+        del input_size
+        input_size = len(self.ppi_matrix_idx)
+        
+        for j in range(n_hiddens_level0):
+            output_size = max(int(input_size/contraction_ratio), 10)
+            self.add_module('FC_ppi_layer_{}'.format(str(j)), nn.Linear(input_size, output_size))
+            del input_size
+            input_size = output_size
+            if j == (n_hiddens_level0 - 1):
+                top_layer_input_size += output_size
+            del output_size
+        
+        del input_size
+        input_size = top_layer_input_size
+        top_layer_output_size = 0
+        
+        for j in range(n_hiddens_top):
+            output_size = max(int(input_size/contraction_ratio), 10)
+            self.add_module('FC_top_layer_{}'.format(str(j)), nn.Linear(input_size, output_size))
+            del input_size
+            input_size = output_size
+            if j == (n_hiddens_top - 1):
+                top_layer_output_size += output_size
+            del output_size
+            
+        self.add_module('final_linear', nn.Linear(top_layer_output_size, 1))
+        
+    def forward(self, x):
+        # stores output of individual NNs applied to -omics and PPIs
+        intermediate_tensors = []
+        # get omics intermediate tensors
+        for i in range(len(self.omics_matrix_idx)):
+            idx_i = self.omics_matrix_idx[i]
+            start_i = int(idx_i[0])
+            len_i = len(idx_i)
+            x_i = x.narrow(1, start_i, len_i)
+            for j in range(self.n_hiddens_level0):
+                omics_layer_i_j = 'FC_omics_{}_layer_{}'.format(str(i), str(j))
+                x_i = torch.tanh(self._modules[omics_layer_i_j](x_i))
+            intermediate_tensors.append(x_i)
+        
+        # get ppi based tensor
+        idx_ppi = self.ppi_matrix_idx
+        start_ppi = int(idx_ppi[0])
+        len_ppi = len(idx_ppi)
+        x_ppi = x.narrow(1, start_ppi, len_ppi)
+        
+        for j in range(self.n_hiddens_level0):
+            ppi_layer_j = 'FC_ppi_layer_{}'.format(str(j))
+            x_ppi = torch.tanh(self._modules[ppi_layer_j](x_ppi))
+            
+        intermediate_tensors.append(x_ppi)
+        # setup intermediate input for top set of layers
+        x_intermediate = torch.cat(intermediate_tensors, axis=1)
+        for j in range(self.n_hiddens_top):
+            top_layer_j = 'FC_top_layer_{}'.format(str(j))
+            x_intermediate = torch.tanh(self._modules[top_layer_j](x_intermediate))
+            
+        x_final = self._modules['final_linear'](x_intermediate).flatten()
+        return x_final
+        
+        
